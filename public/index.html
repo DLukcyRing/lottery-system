@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>抽奖系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 1600px; margin: 0 auto; padding: 0 5px; }
+    .header { text-align: center; color: white; margin-bottom: 20px; }
+    .header h1 { font-size: 36px; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+    .header p { font-size: 16px; opacity: 0.9; }
+    .main-content { display: flex; gap: 20px; justify-content: center; align-items: flex-start; }
+    .wheel-section { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); flex-shrink: 0; height: 760px; }
+    .wheel-container { position: relative; width: 720px; height: 720px; margin: 0 auto; margin-top: calc((760px - 720px)/2); }
+    .wheel { width: 100%; height: 100%; border-radius: 50%; position: relative; transform: rotate(0deg); transition: transform 4s ease-out; box-shadow: 0 15px 40px rgba(0,0,0,0.2); background: white; }
+    .wheel.spinning { transition: transform 6s ease-out; }
+    .wheel svg { width: 100%; height: 100%; }
+    .wheel-center { position: absolute; top: 50%; left: 50%; width: 136px; height: 136px; background: linear-gradient(135deg, #11998e, #38ef7d); border-radius: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 35px rgba(17,153,142,0.5); z-index: 10; border: 5px solid white; }
+    .wheel-center:hover { transform: translate(-50%, -50%) scale(1.05); }
+    .wheel-center span { color: white; font-size: 28px; font-weight: bold; text-align: center; text-transform: uppercase; }
+    .pointer { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 38px solid #e74c3c; z-index: 5; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
+    .control-panel { background: white; border-radius: 20px; padding: 19px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 420px; height: 760px; overflow-y: auto; }
+    .panel-title { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #eee; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+    .form-group select, .form-group input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 14px; transition: border-color 0.3s; }
+    .form-group select:focus, .form-group input:focus { outline: none; border-color: #667eea; }
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s; }
+    .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+    .btn-secondary { background: #f0f0f0; color: #666; }
+    .btn-secondary:hover { background: #e0e0e0; }
+    .btn-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(17,153,142,0.4); }
+    .upload-area { border: 2px dashed #ddd; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
+    .upload-area:hover { border-color: #667eea; background: #f8f9ff; }
+    .upload-area.dragover { border-color: #667eea; background: #eef1ff; }
+    .options-list { max-height: 200px; overflow-y: auto; margin-bottom: 15px; }
+    .option-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+    .option-item:last-child { margin-bottom: 0; }
+    .option-item .delete-btn { background: #ff6b6b; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+    .option-item .delete-btn:hover { background: #ee5a5a; }
+    .result-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; animation: fadeIn 0.3s; }
+    .result-modal.show { display: flex; }
+    .result-content { background: white; border-radius: 20px; padding: 40px; text-align: center; animation: scaleIn 0.5s; max-width: 400px; width: 90%; }
+    .result-content .prize-icon { font-size: 64px; margin-bottom: 20px; }
+    .result-content h2 { font-size: 28px; color: #ff6b6b; margin-bottom: 10px; }
+    .result-content p { font-size: 16px; color: #666; }
+    .result-content button { margin-top: 20px; padding: 12px 40px; }
+    .history-panel { background: white; border-radius: 20px; padding: 19px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 420px; height: 760px; flex-shrink: 0; overflow-y: auto; }
+    .history-list { max-height: 200px; overflow-y: auto; }
+    .history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+    .history-item:last-child { margin-bottom: 0; }
+    .history-item .prize-name { font-weight: 600; color: #333; }
+    .history-item .time { color: #999; font-size: 12px; }
+    .empty-state { text-align: center; padding: 30px; color: #999; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @media (max-width: 768px) { .main-content { flex-direction: column; align-items: center; } .wheel-container { width: 280px; height: 280px; } .control-panel { width: 100%; max-width: 350px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎰 幸运大转盘</h1>
+      <p>公平、透明的在线抽奖工具</p>
+    </div>
+
+    <div class="main-content">
+      <div class="history-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <div class="panel-title">📜 抽奖记录</div>
+          <button class="btn btn-secondary" onclick="clearHistory()" style="width: auto; padding: 3px 10px; font-size: 11px;">清空记录</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="empty-state">暂无抽奖记录</div>
+        </div>
+      </div>
+
+      <div class="wheel-section">
+        <div class="wheel-container">
+          <div class="pointer"></div>
+          <div class="wheel" id="wheel">
+            <div class="wheel-center" id="spinBtn">
+              <span>开始<br/>抽奖</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-panel">
+        <div class="panel-title">🎯 转盘设置</div>
+        
+        <div class="form-group">
+          <label>转盘种类</label>
+          <select id="wheelType">
+            <option value="prize">奖品抽奖</option>
+            <option value="name">人名抽奖</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center;">
+            <input type="checkbox" id="deleteAfterDraw" checked style="margin-right: 8px;">
+            抽中后自动删除
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>抽奖选项 <span style="color: #667eea; font-weight: normal;">(共 <span id="optionsCount">0</span> 个)</span></label>
+          <div class="options-list" id="optionsList">
+            <div class="empty-state">暂无选项，请导入Excel或添加选项</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>导入Excel</label>
+          <div class="upload-area" id="uploadArea">
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            <i>📊</i>
+            <p>点击或拖拽上传Excel文件</p>
+            <p style="font-size: 12px; color: #999;">支持 .xlsx 和 .xls 格式</p>
+          </div>
+        </div>
+
+        <button class="btn btn-success" onclick="addOption()">+ 添加选项</button>
+        <button class="btn btn-secondary" onclick="clearOptions()">清空选项</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="result-modal" id="resultModal">
+    <div class="result-content">
+      <div class="prize-icon" id="prizeIcon">🎉</div>
+      <h2 id="prizeName">恭喜中奖</h2>
+      <p id="prizeDesc">获得奖品</p>
+      <button class="btn btn-primary" id="confirmBtn">确定</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    var options = [];
+    var isSpinning = false;
+    var lotteryHistory = [];
+    var wheelType = 'prize';
+    var deleteAfterDraw = true;
+    var deletedOptions = [];
+
+    var colors = ['#9b59b6', '#3498db', '#1abc9c', '#2ecc71', '#f1c40f', '#e91e63', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#fd79a8'];
+
+    function init() {
+      loadFromStorage();
+      if (!Array.isArray(lotteryHistory)) {
+        lotteryHistory = [];
+        console.log('Reset lotteryHistory to empty array');
+      }
+      renderWheel();
+      renderOptions();
+      renderHistory();
+    }
+
+    function loadFromStorage() {
+      var savedOptions = localStorage.getItem('lottery_options');
+      var savedType = localStorage.getItem('lottery_type');
+      var savedHistory = localStorage.getItem('lottery_history');
+
+      if (savedType) {
+        wheelType = savedType;
+        document.getElementById('wheelType').value = savedType;
+      }
+
+      if (savedOptions) {
+        options = JSON.parse(savedOptions);
+      }
+
+      if (savedHistory) {
+        var parsed = JSON.parse(savedHistory);
+        lotteryHistory = Array.isArray(parsed) ? parsed : [];
+      }
+    }
+
+    function saveToStorage() {
+      localStorage.setItem('lottery_options', JSON.stringify(options));
+      localStorage.setItem('lottery_type', wheelType);
+      localStorage.setItem('lottery_history', JSON.stringify(history));
+      localStorage.setItem('lottery_delete_after_draw', deleteAfterDraw);
+    }
+
+    function renderWheel() {
+      var wheel = document.getElementById('wheel');
+      var wheelSize = 720;
+      var centerSize = 136;
+      var radius = wheelSize / 2;
+      var centerRadius = centerSize / 2;
+
+      if (options.length === 0) {
+        wheel.innerHTML = '<div class="wheel-center" id="spinBtn" onclick="spinWheel"><span>GO</span></div>';
+        return;
+      }
+
+      var segmentCount = options.length;
+      var angle = 360 / segmentCount;
+      var svgNS = 'http://www.w3.org/2000/svg';
+      
+      var svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('width', wheelSize);
+      svg.setAttribute('height', wheelSize);
+      svg.setAttribute('viewBox', '0 0 ' + wheelSize + ' ' + wheelSize);
+      
+      for (var i = 0; i < segmentCount; i++) {
+        var startAngle = (i * angle - 90) * Math.PI / 180;
+        var endAngle = ((i + 1) * angle - 90) * Math.PI / 180;
+        
+        var x1 = radius + radius * Math.cos(startAngle);
+        var y1 = radius + radius * Math.sin(startAngle);
+        var x2 = radius + radius * Math.cos(endAngle);
+        var y2 = radius + radius * Math.sin(endAngle);
+        
+        var largeArc = angle > 180 ? 1 : 0;
+        
+        var pathD = `M ${radius} ${radius} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+        
+        var path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', pathD);
+        path.setAttribute('fill', colors[i % colors.length]);
+        
+        svg.appendChild(path);
+        
+        var midAngle = (startAngle + endAngle) / 2;
+        var textRadius = radius * 0.7;
+        var textX = radius + textRadius * Math.cos(midAngle);
+        var textY = radius + textRadius * Math.sin(midAngle);
+        
+        var text = document.createElementNS(svgNS, 'text');
+        text.setAttribute('x', textX);
+        text.setAttribute('y', textY);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('fill', 'white');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('font-size', segmentCount <= 8 ? '16' : (segmentCount <= 12 ? '14' : '12'));
+        text.setAttribute('text-shadow', '1px 1px 2px rgba(0,0,0,0.5)');
+        var textAngle = midAngle * 180 / Math.PI + 90;
+        text.setAttribute('transform', `rotate(${textAngle}, ${textX}, ${textY})`);
+        text.textContent = options[i].name;
+        
+        svg.appendChild(text);
+      }
+      
+      wheel.innerHTML = '';
+      wheel.appendChild(svg);
+      
+      var center = document.createElement('div');
+      center.className = 'wheel-center';
+      center.id = 'spinBtn';
+      center.innerHTML = '<span>GO</span>';
+      center.onclick = spinWheel;
+      wheel.appendChild(center);
+    }
+
+    function renderOptions() {
+      var list = document.getElementById('optionsList');
+      var countElement = document.getElementById('optionsCount');
+      
+      if (countElement) {
+        countElement.textContent = options.length;
+      }
+      
+      if (options.length === 0) {
+        list.innerHTML = '<div class="empty-state">暂无选项，请导入Excel或添加选项</div>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < options.length; i++) {
+        html += '<div class="option-item"><span>' + options[i].icon + ' ' + options[i].name + '</span><button class="delete-btn" onclick="deleteOption(' + i + ')">删除</button></div>';
+      }
+      list.innerHTML = html;
+    }
+
+    function renderHistory() {
+      console.log('renderHistory called, history length:', lotteryHistory.length);
+      console.log('History data:', lotteryHistory);
+      var list = document.getElementById('historyList');
+      
+      if (lotteryHistory.length === 0) {
+        list.innerHTML = '<div class="empty-state">暂无抽奖记录</div>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < lotteryHistory.length; i++) {
+        var item = lotteryHistory[i];
+        console.log('History item', i, ':', item);
+        if (item && item.name && item.icon && item.time) {
+          html += '<div class="history-item"><span class="prize-name">' + item.icon + ' ' + item.name + '</span><span class="time">' + item.time + '</span></div>';
+        }
+      }
+      console.log('Generated HTML:', html);
+      list.innerHTML = html || '<div class="empty-state">暂无抽奖记录</div>';
+    }
+
+    function spinWheel() {
+      if (isSpinning || options.length < 1) {
+        if (options.length < 1) alert('请先添加抽奖选项');
+        return;
+      }
+
+      isSpinning = true;
+      var spinBtn = document.getElementById('spinBtn');
+      spinBtn.style.pointerEvents = 'none';
+      
+      deleteAfterDraw = document.getElementById('deleteAfterDraw').checked;
+
+      var wheel = document.getElementById('wheel');
+      wheel.style.transition = 'none';
+      wheel.style.transform = 'rotate(0deg)';
+      var currentOptionsCopy = options.slice();
+      var randomIndex = Math.floor(Math.random() * currentOptionsCopy.length);
+      
+      setTimeout(function() {
+        wheel.style.transition = 'transform 4s ease-out';
+        var segmentAngle = 360 / currentOptionsCopy.length;
+        var targetAngle = randomIndex * segmentAngle + segmentAngle / 2 + 360 * 10;
+        wheel.style.transform = 'rotate(' + targetAngle + 'deg)';
+        
+        setTimeout(function() {
+          isSpinning = false;
+          spinBtn.style.pointerEvents = 'auto';
+          
+          var computedStyle = window.getComputedStyle(wheel);
+          var transform = computedStyle.transform;
+          var finalAngle = 0;
+          
+          if (transform && transform !== 'none') {
+            var matrix = transform.match(/matrix\((.+)\)/);
+            if (matrix) {
+              var values = matrix[1].split(',');
+              var a = parseFloat(values[0]);
+              var b = parseFloat(values[1]);
+              finalAngle = Math.atan2(b, a) * 180 / Math.PI;
+            }
+          }
+          
+          finalAngle = (finalAngle % 360 + 360) % 360;
+          var pointerAngle = (360 - finalAngle) % 360;
+          var actualIndex = Math.floor(pointerAngle / segmentAngle) % currentOptionsCopy.length;
+          console.log('Debug - finalAngle:', finalAngle, 'pointerAngle:', pointerAngle, 'segmentAngle:', segmentAngle, 'actualIndex:', actualIndex, 'result:', currentOptionsCopy[actualIndex]?.name);
+          
+          var result = currentOptionsCopy[actualIndex];
+          console.log('Spin complete, result:', result);
+          addToHistory(result);
+          
+          var modal = document.getElementById('resultModal');
+          document.getElementById('prizeIcon').textContent = result.icon;
+          document.getElementById('prizeName').textContent = result.name;
+          document.getElementById('prizeDesc').textContent = wheelType === 'name' ? '恭喜被抽中！' : '恭喜中奖！';
+          modal.classList.add('show');
+          
+          var confirmBtn = document.getElementById('confirmBtn');
+          confirmBtn.onclick = function() {
+            modal.classList.remove('show');
+            if (document.getElementById('deleteAfterDraw').checked) {
+              var idx = options.findIndex(function(o) { return o.name === result.name; });
+              if (idx !== -1) {
+                var deleted = options.splice(idx, 1)[0];
+                deletedOptions.push(deleted);
+              }
+              saveToStorage();
+              renderWheel();
+              renderOptions();
+            }
+          };
+        }, 4000);
+      }, 50);
+    }
+
+    function closeModal() {
+      document.getElementById('resultModal').classList.remove('show');
+    }
+
+    function updateCounts(result) {
+      if (result.count > 0) {
+        result.count--;
+        if (result.count === 0) {
+          var index = options.findIndex(function(o) { return o.name === result.name; });
+          if (index !== -1) {
+            options.splice(index, 1);
+          }
+        }
+      }
+      saveToStorage();
+      renderWheel();
+      renderOptions();
+    }
+
+    function addToHistory(result) {
+      console.log('addToHistory called with:', result);
+      var now = new Date();
+      var timeStr = (now.getMonth() + 1) + '/' + now.getDate() + ' ' + now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+      var historyItem = {
+        name: result.name,
+        icon: result.icon,
+        time: timeStr
+      };
+      lotteryHistory.unshift(historyItem);
+      console.log('History after add:', lotteryHistory);
+      if (lotteryHistory.length > 50) lotteryHistory.pop();
+      saveToStorage();
+      renderHistory();
+    }
+
+    function addOption() {
+      var name = prompt('请输入选项名称：');
+      if (!name) return;
+
+      var icon = wheelType === 'name' ? '👤' : '🎁';
+      options.push({ name: name, count: -1, icon: icon });
+      saveToStorage();
+      renderWheel();
+      renderOptions();
+    }
+
+    function deleteOption(index) {
+      options.splice(index, 1);
+      saveToStorage();
+      renderWheel();
+      renderOptions();
+    }
+
+    function clearOptions() {
+      if (!confirm('确定要清空所有选项吗？')) return;
+      options = [];
+      saveToStorage();
+      renderWheel();
+      renderOptions();
+    }
+
+    function clearHistory() {
+      if (!confirm('确定要清空所有抽奖记录并还原选项吗？')) return;
+      lotteryHistory = [];
+      if (deletedOptions.length > 0) {
+        options = options.concat(deletedOptions);
+        deletedOptions = [];
+      }
+      saveToStorage();
+      renderHistory();
+      renderWheel();
+      renderOptions();
+    }
+
+    function handleTypeChange() {
+      var select = document.getElementById('wheelType');
+      wheelType = select.value;
+      localStorage.setItem('lottery_type', wheelType);
+      
+      if (options.length === 0) {
+        options = wheelType === 'name' ? JSON.parse(JSON.stringify(defaultNameOptions)) : JSON.parse(JSON.stringify(defaultOptions));
+        saveToStorage();
+        renderWheel();
+        renderOptions();
+      }
+    }
+
+    function handleFileUpload(event) {
+      var file = event.target.files[0];
+      if (!file) return;
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var data = new Uint8Array(e.target.result);
+          var workbook = XLSX.read(data, { type: 'array' });
+          var sheetName = workbook.SheetNames[0];
+          var worksheet = workbook.Sheets[sheetName];
+          var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: ['name'] });
+
+          var newOptions = [];
+          for (var i = 1; i < jsonData.length; i++) {
+            var item = jsonData[i];
+            if (item.name && item.name.trim()) {
+              newOptions.push({
+                name: item.name,
+                count: -1,
+                icon: wheelType === 'name' ? '👤' : '🎁'
+              });
+            }
+          }
+
+          if (newOptions.length > 0) {
+            options = newOptions;
+            saveToStorage();
+            renderWheel();
+            renderOptions();
+            alert('成功导入 ' + newOptions.length + ' 个选项！');
+          } else {
+            alert('未找到有效数据，请确保Excel第一列为名称');
+          }
+        } catch (error) {
+          alert('导入失败，请检查文件格式');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function handleDragOver(event) {
+      event.preventDefault();
+      document.getElementById('uploadArea').classList.add('dragover');
+    }
+
+    function handleDragLeave() {
+      document.getElementById('uploadArea').classList.remove('dragover');
+    }
+
+    function handleDrop(event) {
+      event.preventDefault();
+      document.getElementById('uploadArea').classList.remove('dragover');
+      var file = event.dataTransfer.files[0];
+      if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+        document.getElementById('fileInput').files = event.dataTransfer.files;
+        handleFileUpload({ target: { files: [file] } });
+      }
+    }
+
+    document.getElementById('wheelType').addEventListener('change', handleTypeChange);
+    document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+    document.getElementById('uploadArea').addEventListener('click', function() { document.getElementById('fileInput').click(); });
+    document.getElementById('uploadArea').addEventListener('dragover', handleDragOver);
+    document.getElementById('uploadArea').addEventListener('dragleave', handleDragLeave);
+    document.getElementById('uploadArea').addEventListener('drop', handleDrop);
+
+    init();
+  </script>
+</body>
+</html>
