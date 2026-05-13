@@ -201,8 +201,7 @@
         return;
       }
 
-      var shuffledOptions = [...options].sort(() => Math.random() - 0.5);
-      var segmentCount = shuffledOptions.length;
+      var segmentCount = options.length;
       var angle = 360 / segmentCount;
       var svgNS = 'http://www.w3.org/2000/svg';
       
@@ -246,7 +245,7 @@
         text.setAttribute('text-shadow', '1px 1px 2px rgba(0,0,0,0.5)');
         var textAngle = midAngle * 180 / Math.PI + 90;
         text.setAttribute('transform', `rotate(${textAngle}, ${textX}, ${textY})`);
-        text.textContent = shuffledOptions[i].name;
+        text.textContent = options[i].name;
         
         svg.appendChild(text);
       }
@@ -420,6 +419,7 @@
 
       var icon = wheelType === 'name' ? '👤' : '🎁';
       options.push({ name: name, count: -1, icon: icon });
+      options.sort(() => Math.random() - 0.5);
       saveToStorage();
       renderWheel();
       renderOptions();
@@ -492,7 +492,7 @@
           }
 
           if (newOptions.length > 0) {
-            options = newOptions;
+            options = newOptions.sort(() => Math.random() - 0.5);
             saveToStorage();
             renderWheel();
             renderOptions();
